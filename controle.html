@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle - Vanguard</title>
+
+<style>
+    body { margin:0; font-family:Arial; background:#f4f4f4; }
+
+    header {
+        position:relative;
+        background:linear-gradient(to right,#2c3e50,#1abc9c);
+        color:white;
+        padding:20px;
+        text-align:center;
+    }
+
+    .logo { width:100px; margin-bottom:5px; }
+
+    .btn-sair {
+        position:absolute; right:15px; top:15px;
+        padding:5px 10px; font-size:12px;
+        background:#e74c3c; border:none;
+        color:white; border-radius:5px;
+    }
+
+    .container { padding:15px; }
+
+    select { width:100%; padding:10px; font-size:13px; margin:8px 0; }
+
+    .detalhes {
+        background:white;
+        padding:15px;
+        border-radius:8px;
+        margin-top:20px;
+    }
+
+    .campo-km { width:150px; padding:8px; font-size:13px; }
+
+    .campo-texto {
+        width:100%; height:80px;
+        padding:8px; font-size:13px;
+        border-radius:5px;
+        border:1px solid #ccc;
+    }
+
+    .placa-titulo { font-size:11px; color:#333; }
+
+    .info { font-size:12px; color:#555; margin-top:5px; }
+
+</style>
+</head>
+
+<body>
+
+<header>
+    <button class="btn-sair" onclick="sair()">Sair</button>
+    <img src="Vanguard.png" class="logo">
+    <h3>Controle de Óleo e Pneu</h3>
+    <p>Vanguard Transporte</p>
+</header>
+
+<div class="container">
+    <h3>Selecionar Veículo</h3>
+    <select id="selectPlaca" onchange="abrirSelecionado()"></select>
+    <div id="areaDetalhes"></div>
+</div>
+
+<!-- 🔥 FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+
+// 🔥 CONFIG FIREBASE
+const firebaseConfig = {
+  apiKey: "AIzaSyALBzF2mCjksABQUteZY8iTS0RBubMAy_Q",
+  authDomain: "controle-veiculos-a0021.firebaseapp.com",
+  projectId: "controle-veiculos-a0021",
+  storageBucket: "controle-veiculos-a0021.firebasestorage.app",
+  messagingSenderId: "994564065503",
+  appId: "1:994564065503:web:3e15217d06b3b3f309816a"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// 📌 PLACAS
+let placasFixas = [
+    "TCW-4H79 - DENER","TCW-4H82 - ZEZE","TCW-8B75 - WILDER",
+    "TCZ-0B74 - VINICIUS","TDD-0F32 - KEKE","TDB-9B52 - ROGERSON",
+    "SYL-8F21 - EDILSON","SYK-4H02 - FREDERICO","RUD-1E29 - DOKINHA",
+    "RUC-2A69 - DEYVERSON","RUC-2A74 - CLAUDINEI","RTF-4A07 - WELLINGTON",
+    "RTF-4A09 - GABRIEL","RTF-4A11 - TUNICO","RFY-6A32 - SEM MOTORISTA"
+];
+
+let dados = [];
+
+// 🔢 FORMATAR
+function formatarKM(valor) {
+    return Number(valor).toLocaleString('pt-BR');
+}
+
+function limparKM(valor) {
+    return valor.replace(/\./g, '');
+}
+
+// 🚀 CARREGAR DO FIRESTORE
+async function carregarDados() {
+
+    dados = [];
+
+    for (let placa of placasFixas) {
+
+        let doc = await db.collection("veiculos").doc(placa).get();
+
+        if (doc.exists) {
+            dados.push(doc.data());
+        } else {
+            let novo = {
+                placa: placa,
+                oleo: '',
+                pneu: '',
+                descOleo: '',
+                descPneu: ''
+            };
+
+            dados.push(novo);
+
+            // cria no banco
+            await db.collection("veiculos").doc(placa).set(novo);
+        }
+    }
+
+    montarSelect();
+}
+
+// 🧩 MONTAR COMBOBOX
+function montarSelect() {
+
+    let select = document.getElementById("selectPlaca");
+
+    let options = `<option value="">Selecione a placa</option>`;
+
+    dados.forEach((item, index) => {
+        options += `<option value="${index}">${item.placa}</option>`;
+    });
+
+    select.innerHTML = options;
+}
+
+// 🔍 ABRIR
+function abrirSelecionado() {
+
+    let index = document.getElementById("selectPlaca").value;
+
+    if (index === "") {
+        document.getElementById("areaDetalhes").innerHTML = "";
+        return;
+    }
+
+    let item = dados[index];
+
+    let kmOleo = item.oleo ? formatarKM(item.oleo) : '';
+    let proximaTroca = item.oleo ? formatarKM(Number(item.oleo) + 40000) : '';
+
+    let html = `
+        <div class="detalhes">
+            <h4 class="placa-titulo">${item.placa}</h4>
+
+            <label>KM Troca de Óleo</label><br>
+            <input class="campo-km" id="oleo" value="${kmOleo}" oninput="formatarCampo(this)">
+
+            <div class="info">
+                Próxima Troca de Óleo: <strong id="proxima">${proximaTroca}</strong>
+            </div>
+
+            <label>Descrição da troca de óleo</label>
+            <textarea class="campo-texto" id="descOleo">${item.descOleo || ''}</textarea>
+
+            <br>
+
+            <label>KM Troca de Pneu</label><br>
+            <input class="campo-km" id="pneu" value="${item.pneu ? formatarKM(item.pneu) : ''}" oninput="formatarCampo(this)">
+
+            <label>Descrição da troca de pneu</label>
+            <textarea class="campo-texto" id="descPneu">${item.descPneu || ''}</textarea>
+
+            <br>
+
+            <button onclick="salvarEdicao(${index})">Salvar</button>
+        </div>
+    `;
+
+    document.getElementById("areaDetalhes").innerHTML = html;
+}
+
+// 🔢 FORMATAR
+function formatarCampo(campo) {
+
+    let valor = limparKM(campo.value);
+
+    if (!isNaN(valor) && valor !== '') {
+        campo.value = formatarKM(valor);
+    }
+
+    if (campo.id === "oleo") {
+        let proxima = document.getElementById("proxima");
+
+        if (valor !== '') {
+            proxima.innerText = formatarKM(Number(valor) + 40000);
+        } else {
+            proxima.innerText = '';
+        }
+    }
+}
+
+// 💾 SALVAR
+async function salvarEdicao(index) {
+
+    dados[index].oleo = limparKM(document.getElementById("oleo").value);
+    dados[index].pneu = limparKM(document.getElementById("pneu").value);
+    dados[index].descOleo = document.getElementById("descOleo").value;
+    dados[index].descPneu = document.getElementById("descPneu").value;
+
+    await db.collection("veiculos")
+        .doc(dados[index].placa)
+        .set(dados[index]);
+
+    alert("Salvo com sucesso!");
+}
+
+// 🔴 SAIR
+function sair() {
+    if (confirm("Você deseja realmente sair do programa?")) {
+        window.location.href = "index.html";
+    }
+}
+
+// 🚀 START
+carregarDados();
+
+</script>
+
+</body>
+</html>

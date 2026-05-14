@@ -62,7 +62,7 @@ select {
 
 .campo-texto {
     width: 100%;
-    height: 140px; /* 🔥 MAIOR */
+    height: 140px;
     font-size: 13px;
     margin-top: 5px;
 }
@@ -104,28 +104,29 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// PLACAS
+// VEÍCULOS
 let placasFixas = [
-"TCW-4H79 - DENER",
-"TCW-4H82 - ZEZE",
-"TCW-8B75 - WILDER",
-"TCZ-0B74 - VINICIUS",
-"TDD-0F32 - KEKE",
-"TDB-9B52 - ROGERSON",
-"SYL-8F21 - EDILSON",
-"SYK-4H02 - FREDERICO",
-"RUD-1E29 - DOKINHA",
-"RUC-2A69 - DEYVERSON",
-"RUC-2A74 - CLAUDINEI",
-"RTF-4A07 - WELLINGTON",
-"RTF-4A09 - GABRIEL",
-"RTF-4A11 - TUNICO",
-"RFY-6A32 - SEM MOTORISTA"
+{ placa: "TCW-4H79", motorista: "WANDER" },
+{ placa: "TCW-4H82", motorista: "RENATO" },
+{ placa: "TCW-8B75", motorista: "WILDER" },
+{ placa: "TCZ-0B74", motorista: "VINICIUS" },
+{ placa: "TDD-0F32", motorista: "KEKE" },
+{ placa: "TDB-9B52", motorista: "ROGERSON" },
+{ placa: "SYL-8F21", motorista: "EDILSON" },
+{ placa: "SYK-4H02", motorista: "FREDERICO" },
+{ placa: "RUD-1E29", motorista: "DOKINHA" },
+{ placa: "RUC-2A69", motorista: "DEYVERSON" },
+{ placa: "RUC-2A74", motorista: "CLAUDINEI" },
+{ placa: "RTF-4A07", motorista: "WELLINGTON" },
+{ placa: "RTF-4A09", motorista: "GABRIEL" },
+{ placa: "RTF-4A11", motorista: "TUNICO" },
+{ placa: "RFY-6A32", motorista: "SEM MOTORISTA" },
+{ placa: "TZK-1D67", motorista: "DENER" }
 ];
 
 let dados = [];
 
-// 🔢 FORMATAR KM
+// FORMATAR KM
 function formatarKM(valor) {
     return Number(valor).toLocaleString('pt-BR');
 }
@@ -134,35 +135,46 @@ function limparKM(valor) {
     return valor.replace(/\./g, '');
 }
 
-// 🔄 CARREGAR
+// CARREGAR
 async function carregarDados() {
+
     const querySnapshot = await getDocs(collection(db, "veiculos"));
+
     dados = [];
 
     querySnapshot.forEach((docSnap) => {
-        dados.push({ id: docSnap.id, ...docSnap.data() });
+        dados.push({
+            id: docSnap.id,
+            ...docSnap.data()
+        });
     });
 
     iniciar();
 }
 
-// 🚀 INICIAR
-
+// INICIAR
 async function iniciar() {
 
     let select = document.getElementById("selectPlaca");
+
     let options = `<option value="">Selecione</option>`;
 
     let listaOrdenada = [];
 
-    // 🔥 GARANTE ORDEM DAS PLACAS
-    for (let placa of placasFixas) {
+    for (let veiculo of placasFixas) {
 
-        let item = dados.find(v => v.placa === placa);
+        // PROCURA SOMENTE PELA PLACA
+        let item = dados.find(v =>
+            v.placa &&
+            v.placa.startsWith(veiculo.placa)
+        );
 
+        // SE NÃO EXISTIR CRIA
         if (!item) {
+
             const novo = await addDoc(collection(db, "veiculos"), {
-                placa,
+                placa: veiculo.placa,
+                motorista: veiculo.motorista,
                 oleo: "",
                 pneu: "",
                 descOleo: "",
@@ -171,63 +183,122 @@ async function iniciar() {
 
             item = {
                 id: novo.id,
-                placa,
+                placa: veiculo.placa,
+                motorista: veiculo.motorista,
                 oleo: "",
                 pneu: "",
                 descOleo: "",
                 descPneu: ""
             };
+
+        } else {
+
+            // ATUALIZA MOTORISTA AUTOMATICAMENTE
+                item.placa = veiculo.placa;
+		item.motorista = veiculo.motorista;
+
         }
 
         listaOrdenada.push(item);
     }
 
-    // 🔁 substitui pelos dados ordenados
     dados = listaOrdenada;
 
-    // monta o select
+    // COMBOBOX
     dados.forEach((item, index) => {
-        options += `<option value="${index}">${item.placa}</option>`;
+
+        options += `
+        <option value="${index}">
+            ${item.placa} - ${item.motorista || ''}
+        </option>
+        `;
     });
 
     select.innerHTML = options;
 }
 
-
-// 🔍 ABRIR
+// ABRIR
 window.abrirSelecionado = function () {
 
     let index = document.getElementById("selectPlaca").value;
+
     if (index === "") return;
 
     let item = dados[index];
 
     let kmOleo = item.oleo ? formatarKM(item.oleo) : "";
-    let proxima = item.oleo ? formatarKM(Number(item.oleo) + 40000) : "";
+
+    let proxima = item.oleo
+        ? formatarKM(Number(item.oleo) + 40000)
+        : "";
 
     document.getElementById("areaDetalhes").innerHTML = `
+
     <div class="detalhes">
+
         <h4>${item.placa}</h4>
 
+        <div>
+            <strong>Motorista:</strong>
+            ${item.motorista || ''}
+        </div>
+
+        <br>
+
         KM Óleo:<br>
-        <input class="campo-km" id="oleo" value="${kmOleo}" oninput="formatarCampo(this)">
-        <div>Próxima troca: <strong id="proxima">${proxima}</strong></div><br>
+
+        <input
+            class="campo-km"
+            id="oleo"
+            value="${kmOleo}"
+            oninput="formatarCampo(this)"
+        >
+
+        <div>
+            Próxima troca:
+            <strong id="proxima">${proxima}</strong>
+        </div>
+
+        <br>
 
         Descrição Óleo:<br>
-        <textarea class="campo-texto" id="descOleo">${item.descOleo || ''}</textarea><br><br>
+
+        <textarea
+            class="campo-texto"
+            id="descOleo"
+        >${item.descOleo || ''}</textarea>
+
+        <br><br>
 
         KM Pneu:<br>
-        <input class="campo-km" id="pneu" value="${item.pneu ? formatarKM(item.pneu) : ''}" oninput="formatarCampo(this)"><br><br>
+
+        <input
+            class="campo-km"
+            id="pneu"
+            value="${item.pneu ? formatarKM(item.pneu) : ''}"
+            oninput="formatarCampo(this)"
+        >
+
+        <br><br>
 
         Descrição Pneu:<br>
-        <textarea class="campo-texto" id="descPneu">${item.descPneu || ''}</textarea><br><br>
 
-        <button onclick="salvar(${index})">Salvar</button>
+        <textarea
+            class="campo-texto"
+            id="descPneu"
+        >${item.descPneu || ''}</textarea>
+
+        <br><br>
+
+        <button onclick="salvar(${index})">
+            Salvar
+        </button>
+
     </div>
     `;
 }
 
-// 🔢 FORMATAR AO DIGITAR
+// FORMATAR AO DIGITAR
 window.formatarCampo = function(campo) {
 
     let valor = limparKM(campo.value);
@@ -237,33 +308,48 @@ window.formatarCampo = function(campo) {
     }
 
     if (campo.id === "oleo") {
+
         let proxima = document.getElementById("proxima");
 
         if (valor !== '') {
-            proxima.innerText = formatarKM(Number(valor) + 40000);
+            proxima.innerText =
+                formatarKM(Number(valor) + 40000);
         } else {
             proxima.innerText = "";
         }
     }
 }
 
-// 💾 SALVAR
+// SALVAR
 window.salvar = async function(index) {
 
     let item = dados[index];
 
     await updateDoc(doc(db, "veiculos", item.id), {
-        oleo: limparKM(document.getElementById("oleo").value),
-        pneu: limparKM(document.getElementById("pneu").value),
-        descOleo: document.getElementById("descOleo").value,
-        descPneu: document.getElementById("descPneu").value
+
+        motorista: item.motorista,
+
+        oleo: limparKM(
+            document.getElementById("oleo").value
+        ),
+
+        pneu: limparKM(
+            document.getElementById("pneu").value
+        ),
+
+        descOleo:
+            document.getElementById("descOleo").value,
+
+        descPneu:
+            document.getElementById("descPneu").value
     });
 
     alert("Salvo na nuvem!");
 }
 
-// 🔴 SAIR
+// SAIR
 window.sair = function () {
+
     if (confirm("Deseja sair?")) {
         window.location.href = "index.html";
     }
